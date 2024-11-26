@@ -1,9 +1,8 @@
 package org.example;
 
 import java.io.*;
-import java.net.Socket;
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
+import java.net.Socket;
 
 public class VtkClient {
   private String ip;
@@ -21,7 +20,7 @@ public class VtkClient {
     System.out.println("Подключение к " + ip + ":" + port);
     socket = new Socket();
     socket.connect(new InetSocketAddress(ip, port), 15000); // Таймаут подключения
-    socket.setSoTimeout(10000); // Таймаут чтения
+    socket.setSoTimeout(20000); // Таймаут на чтение
     inputStream = new DataInputStream(socket.getInputStream());
     outputStream = new DataOutputStream(socket.getOutputStream());
   }
@@ -41,26 +40,19 @@ public class VtkClient {
 
   public VtkMessage receiveMessage() throws IOException {
     System.out.println("Ожидание ответа от терминала...");
-    byte[] header = new byte[VtkMessage.HEADER_LENGTH];
 
-    int readBytes = inputStream.read(header);
-    if (readBytes < VtkMessage.HEADER_LENGTH) {
-      throw new IOException("Не удалось прочитать заголовок сообщения.");
-    }
-    System.out.println("Получен заголовок: " + bytesToHex(header));
+    // Читаем длину сообщения
+    byte[] lengthBytes = new byte[2];
+    inputStream.readFully(lengthBytes);
+    int length = ((lengthBytes[0] & 0xFF) << 8) | (lengthBytes[1] & 0xFF);
 
-    int length = ByteBuffer.wrap(header).getShort() & 0xFFFF;
+    // Читаем остальную часть сообщения
     byte[] data = new byte[length];
+    inputStream.readFully(data);
 
-    readBytes = inputStream.read(data);
-    if (readBytes < length) {
-      throw new IOException("Не удалось прочитать полное сообщение.");
-    }
     System.out.println("Получено сообщение: " + bytesToHex(data));
-
-    return VtkMessage.fromBytes(data);
+    return new VtkMessage(0, data); // Возвращаем сообщение без CRC для проверки
   }
-
 
   private String bytesToHex(byte[] bytes) {
     StringBuilder sb = new StringBuilder();

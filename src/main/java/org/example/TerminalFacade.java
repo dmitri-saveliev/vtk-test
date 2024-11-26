@@ -5,7 +5,6 @@ import java.io.IOException;
 
 public class TerminalFacade {
   private VtkClient client;
-  private int operationNumber = 1;
 
   public TerminalFacade(String ip, int port) {
     this.client = new VtkClient(ip, port);
@@ -19,38 +18,17 @@ public class TerminalFacade {
     client.disconnect();
   }
 
-  public boolean checkHealth() {
+  public boolean initializeTerminal() {
     try {
-      System.out.println("Отправка сообщения IDL для проверки состояния...");
+      System.out.println("Отправка IDL сообщения для перехода в состояние IDLE...");
       VtkMessage idlMessage = createIdlMessage();
       client.sendMessage(idlMessage);
 
-      System.out.println("Сообщение отправлено. Ожидание ответа...");
       VtkMessage response = client.receiveMessage();
-
-      if (response == null || response.toBytes().length == 0) {
-        System.err.println("Ответ отсутствует или пустой.");
-        return false;
-      }
-
-      System.out.println("Ответ получен: " + new String(response.toBytes()));
+      System.out.println("Ответ терминала: " + new String(response.toBytes()));
       return true;
     } catch (IOException e) {
-      System.err.println("Ошибка проверки терминала: " + e.getMessage());
-      return false;
-    }
-  }
-
-
-  public boolean processPayment(int amount) {
-    try {
-      VtkMessage vrpMessage = createVrpMessage(amount);
-      client.sendMessage(vrpMessage);
-
-      VtkMessage response = client.receiveMessage();
-      return isPaymentApproved(response);
-    } catch (IOException e) {
-      System.err.println("Ошибка проведения платежа: " + e.getMessage());
+      System.err.println("Ошибка инициализации терминала: " + e.getMessage());
       return false;
     }
   }
@@ -59,42 +37,49 @@ public class TerminalFacade {
     ByteArrayOutputStream payload = new ByteArrayOutputStream();
 
     try {
-      // Тег 01h: Код команды
+      // Код команды (IDL)
       payload.write(0x01); // Тег
       payload.write(0x03); // Длина
-      payload.write('I');  // IDL
+      payload.write('I');  // Значение "IDL"
       payload.write('D');
       payload.write('L');
 
-      // Тег 03h: Номер операции
-      payload.write(0x03); // Тег
-      payload.write(0x01); // Длина
-      payload.write(0x01); // Значение
-
-      // Тег 06h: Таймаут
-      payload.write(0x06); // Тег
-      payload.write(0x03); // Длина
-      payload.write("120".getBytes()); // Значение (120 секунд)
-
-      // Тег 08h: Номер события
+      // Текущий номер события
       payload.write(0x08); // Тег
       payload.write(0x01); // Длина
-      payload.write(0x01); // Значение
+      payload.write('1');  // Значение (1 в ASCII)
+
+      // Имя события (CSAPP)
+      payload.write(0x07); // Тег
+      payload.write(0x05); // Длина
+      payload.write('C');  // Значение "CSAPP"
+      payload.write('S');
+      payload.write('A');
+      payload.write('P');
+      payload.write('P');
+
+      // ID продукта (123)
+      payload.write(0x09); // Тег
+      payload.write(0x03); // Длина
+      payload.write('1');  // Значение "123"
+      payload.write('2');
+      payload.write('3');
+
+      // Наименование продукта (Кофе)
+      payload.write(0x0F); // Тег
+      payload.write(0x08); // Длина
+      payload.write("Кофе".getBytes("UTF-8")); // UTF-8 строка
+
+      // Сумма (9000 = 90.00)
+      payload.write(0x04); // Тег
+      payload.write(0x04); // Длина
+      payload.write(0x00);
+      payload.write(0x00);
+      payload.write(0x23); // Сумма (9000 копеек)
     } catch (IOException e) {
       e.printStackTrace();
     }
 
-    return new VtkMessage(VtkMessage.PROTOCOL_DISCRIMINATOR_POS, payload.toByteArray());
-  }
-
-
-  private VtkMessage createVrpMessage(int amount) {
-    String payload = String.format("01VRP0301%04d040%d", operationNumber++, amount);
-    return new VtkMessage(VtkMessage.PROTOCOL_DISCRIMINATOR_POS, payload.getBytes());
-  }
-
-  private boolean isPaymentApproved(VtkMessage response) {
-    String payload = new String(response.toBytes());
-    return payload.contains("APPROVED");
+    return new VtkMessage(VtkMessage.PROTOCOL_DISCRIMINATOR_VMC, payload.toByteArray());
   }
 }

@@ -4,28 +4,26 @@ import java.io.IOException;
 
 public class Main {
   public static void main(String[] args) {
-    TerminalFacade terminal = new TerminalFacade("192.168.0.29", 62801);
+    String ip = "192.168.0.29";
+    int port = 62801;
+
+    TerminalFacade terminal = new TerminalFacade(ip, port);
 
     try {
-      //Подключение
       terminal.connect();
-
-      if (terminal.checkHealth()) {
-        System.out.println("Терминал доступен.");
-        boolean paymentResult = terminal.processPayment(100);
-        if (paymentResult) {
-          System.out.println("Платеж успешно проведен.");
-        } else {
-          System.out.println("Платеж отклонен.");
-        }
+      if (terminal.initializeTerminal()) {
+        System.out.println("Терминал успешно инициализирован!");
       } else {
-        System.out.println("Терминал недоступен.");
+        System.out.println("Не удалось инициализировать терминал.");
       }
-
-      terminal.disconnect();
     } catch (IOException e) {
-      System.err.println("Ошибка работы с терминалом: " + e.getMessage());
+      System.err.println("Ошибка: " + e.getMessage());
+    } finally {
+      try {
+        terminal.disconnect();
+      } catch (IOException e) {
+        System.err.println("Ошибка при отключении: " + e.getMessage());
+      }
     }
   }
 }
-
