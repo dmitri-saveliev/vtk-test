@@ -7,6 +7,7 @@ public class Main {
     TerminalFacade terminal = new TerminalFacade("192.168.0.29", 62801);
 
     try {
+      //Подключение
       terminal.connect();
 
       if (terminal.checkHealth()) {
